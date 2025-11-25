@@ -24,6 +24,7 @@ We need scanpy for spatial transcriptomics research, squidpy is optional.
 ```bash
 pip install scanpy==1.9.1
 pip install squidpy==1.2.3
+pip install matplotlib==3.6.2
 ```
 
 For mclust algorithm, we need to install R basic environment(optional).
@@ -31,6 +32,7 @@ For mclust algorithm, we need to install R basic environment(optional).
 ```
 conda install r-base r-essentials
 conda install rpy2
+R
 install.packages("mclust")
 ```
 
