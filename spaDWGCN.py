@@ -142,12 +142,12 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description="batch parameters")
     
-    parser.add_argument('--source_data', type=str, default="MsBrainAgingSpatialDonor_7_1", help='Path to load anndata')
-    parser.add_argument('--fig_save_path', type=str, default="/data/zkf/spdomain/temp_test/MERFISH_seed_1/", help='Path to save figures and results')
+    parser.add_argument('--source_data', type=str, default="example.h5ad", help='Path to load anndata')
+    parser.add_argument('--fig_save_path', type=str, default="./test/", help='Path to save figures and results')
     parser.add_argument('--epochs', type=int, default=200, help='training epochs')
     parser.add_argument('--spatial_reg_parameter', type=int, default=10, help='spatial reg hyparameter')
-    parser.add_argument('--layer_encoder', type=int, nargs=2, default=[1024,256], help='GCNEncoder neuron number')
-    parser.add_argument('--layer_decoder', type=int, nargs=2, default=[256,1024], help='GCNDecoder neuron number')
+    parser.add_argument('--layer_encoder', type=int, nargs=2, default=[256,128], help='GCNEncoder neuron number')
+    parser.add_argument('--layer_decoder', type=int, nargs=2, default=[128,256], help='GCNDecoder neuron number')
     parser.add_argument('--estimate_clust_num', type=int, default=8, help='estimating cluster number for mclust')
     parser.add_argument('--cuda', type=int, default=7, help='cuda kernel')
     parser.add_argument('--exp_neighbor', type=int, default=6, help='gene_expression_neighbor')
@@ -172,10 +172,9 @@ if __name__ == '__main__':
     res_set = args.res_set
     set_seed(1234)
 
-    #fig_save_path = "/data2/zkf/GNNdomain/best_figure/STARMAP/"
-    #load data
-    #adata = ad.read("/data2/zkf/MENDER/STARmap_20180505_BY3_1k_20250310202358.h5ad")
 
+    #load data
+    #adata = ad.read("./STARmap_20180505_BY3_1k_20250310202358.h5ad")
     #import pysodb
     #sodb = pysodb.SODB()
     #adata_raw = sodb.load_experiment('Allen2022Molecular_aging',source_data)
@@ -219,4 +218,5 @@ if __name__ == '__main__':
     cluster_method(adata, fig_save_path, mode = 'mclust', n_cluster = estimate_clust_num)
     torch.save(adata_after_train.model, fig_save_path+'model.pth')
     adata_after_train.write(fig_save_path+'adata_reg_'+str(spatial_reg_parameter)+'_epoch'+str(epochs)+'.h5ad')
+
 
