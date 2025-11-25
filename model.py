@@ -19,7 +19,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, GATv2Conv
 import torch
-import pysodb
+#import pysodb
 
 from tqdm import tqdm
 from torch_geometric.data import Data
@@ -263,3 +263,4 @@ def spatial_reg_loss(z, spatial_coords, device= 'cuda'):
 
     penalty = torch.div(torch.sum(torch.mul(1.0 - z_dists, sp_dists)), n_items).to(device)
     return penalty
+
