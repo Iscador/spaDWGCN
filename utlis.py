@@ -187,7 +187,6 @@ def cluster_method(adata, fig_save_path, data_place = 'embeddings', mode = 'leid
     adata_new.obsm['spatial']=adata.obsm['spatial']
     adata_new.obs=adata.obs
     print(adata_new)
-    print(adata.uns['lamda'])
     obsm_data= data_place
 
     if mode == 'leiden':
@@ -220,6 +219,7 @@ def cluster_method(adata, fig_save_path, data_place = 'embeddings', mode = 'leid
         print("res:",res,", NMI=",NMI, ", ARI=",ARI)
         sq.pl.spatial_scatter(adata_new,spatial_key="spatial",shape=None,color=f"{obsm_data}_mclust",title="DWGCN "+mode+" NMI="+ str(NMI)+" ARI="+ str(ARI),
         save=fig_save_path+"mclust" +str(n_cluster)+".jpg", dpi = 100)
+
 
 
 
