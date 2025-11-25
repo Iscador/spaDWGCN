@@ -21,7 +21,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, GATv2Conv
 import torch
-import pysodb
+#import pysodb
 
 from tqdm import tqdm
 from torch_geometric.data import Data
@@ -218,5 +218,6 @@ if __name__ == '__main__':
     cluster_method(adata, fig_save_path, mode = 'mclust', n_cluster = estimate_clust_num)
     torch.save(adata_after_train.model, fig_save_path+'model.pth')
     adata_after_train.write(fig_save_path+'adata_reg_'+str(spatial_reg_parameter)+'_epoch'+str(epochs)+'.h5ad')
+
 
 
