@@ -22,8 +22,8 @@ pip install numpy==1.22.4
 We need scanpy for spatial transcriptomics research, squidpy is optional.
 
 ```bash
-pip install scanpy
-pip install squidpy
+pip install scanpy==1.9.1
+pip install squidpy==1.2.3
 ```
 
 For mclust algorithm, we need to install R basic environment(optional).
