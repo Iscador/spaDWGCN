@@ -19,7 +19,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, GATv2Conv
 import torch
-import pysodb
+#import pysodb
 
 from tqdm import tqdm
 from torch_geometric.data import Data
@@ -225,3 +225,4 @@ def cluster_method(adata, fig_save_path, data_place = 'embeddings', mode = 'leid
 
 
     
+
