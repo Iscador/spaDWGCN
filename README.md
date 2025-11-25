@@ -41,5 +41,9 @@ pip install jupyter
 ```
 
 ## Usage
-
-For further usage guide, please see STARMAP.ipynb.
+```bash
+git clone https://github.com/Iscador/spaDWGCN.git
+cd spaDWGCN
+#for STARMAP dataset (as a guidance)
+python "./spaDWGCN.py" --source_data "./STARmap_20180505_BY3_1k_20251015172221.h5ad" --fig_save_path "./test/"
+```
