@@ -49,3 +49,8 @@ cd spaDWGCN
 #for STARMAP dataset (as a guidance)
 python "./spaDWGCN.py" --source_data "./STARmap_20180505_BY3_1k_20251015172221.h5ad" --fig_save_path "./test/"
 ```
+
+Expected Output
+The cluster results can be found in the corresponding folder:
+![mclust7](https://github.com/user-attachments/assets/ab549895-79f6-4fff-bf99-6c6fcd6fae8a)
+The time cost for STARMAP dataset should be less than 1 minute.
