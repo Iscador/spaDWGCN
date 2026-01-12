@@ -1,6 +1,6 @@
 # spaDWGCN
 
-This repository introduces a biologically meaningful algorithm spaDWGCN, for self-supervised spatial domain identification. The method first creates two biologically meaningful view features, gene expression and microenvironment. By introducing distance, a crucial element in spatial transcriptomics, this method achieves state-of-the-art performance in various datasets from different ST platforms.
+This repository introduces spaDWGCN for spatial domain identification. The method first creates two biologically meaningful view features, gene expression and microenvironment. By introducing distance, a crucial element in spatial transcriptomics, this method achieves state-of-the-art performance in various datasets from different ST platforms.
 
 ## Installations
 
