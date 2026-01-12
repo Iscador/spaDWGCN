@@ -11,7 +11,7 @@ conda create -n spaDWGCN_env python=3.9
 conda activate spaDWGCN_env
 ```
 
-Installing Pytorch , and corresponding packages like torch-geometric. Please note that torch, CUDA version and python version should be compatible.
+Installing Pytorch and the corresponding packages like torch-geometric. Please note that torch, CUDA version, and Python version should be compatible.
 
 ```bash
 pip install torch
@@ -19,7 +19,7 @@ pip install torch-geometric
 pip install numpy==1.22.4
 ```
 
-We need scanpy for spatial transcriptomics research, squidpy is optional.
+We need scanpy for spatial transcriptomics research; squidpy is optional.
 
 ```bash
 pip install scanpy==1.9.1
@@ -27,7 +27,7 @@ pip install squidpy==1.2.3
 pip install matplotlib==3.6.2
 ```
 
-For mclust algorithm, we need to install R basic environment(optional).
+For mclust algorithm, we need to install the R basic environment(optional).
 
 ```
 conda install r-base r-essentials
@@ -36,7 +36,7 @@ R
 install.packages("mclust")
 ```
 
-For further study, we install Jupyter notebook.
+For further study, we install Jupyter Notebook.
 
 ```
 pip install jupyter
@@ -50,7 +50,8 @@ cd spaDWGCN
 python "./spaDWGCN.py" --source_data "./STARmap_20180505_BY3_1k_20251015172221.h5ad" --fig_save_path "./test/"
 ```
 
-Expected Output
 The cluster results can be found in the corresponding folder:
+
 ![mclust7](https://github.com/user-attachments/assets/ab549895-79f6-4fff-bf99-6c6fcd6fae8a)
+
 The time cost for STARMAP dataset should be less than 1 minute.
