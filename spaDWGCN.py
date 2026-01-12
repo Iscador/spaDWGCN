@@ -148,7 +148,7 @@ if __name__ == '__main__':
     parser.add_argument('--spatial_reg_parameter', type=int, default=10, help='spatial reg hyparameter')
     parser.add_argument('--layer_encoder', type=int, nargs=2, default=[256,128], help='GCNEncoder neuron number')
     parser.add_argument('--layer_decoder', type=int, nargs=2, default=[128,256], help='GCNDecoder neuron number')
-    parser.add_argument('--estimate_clust_num', type=int, default=8, help='estimating cluster number for mclust')
+    parser.add_argument('--estimate_clust_num', type=int, default=7, help='estimating cluster number for mclust')
     parser.add_argument('--cuda', type=int, default=7, help='cuda kernel')
     parser.add_argument('--exp_neighbor', type=int, default=6, help='gene_expression_neighbor')
     parser.add_argument('--env_neighbor', type=int, default=18, help='microenvironment_neighbor')
@@ -218,6 +218,7 @@ if __name__ == '__main__':
     cluster_method(adata, fig_save_path, mode = 'mclust', n_cluster = estimate_clust_num)
     torch.save(adata_after_train.model, fig_save_path+'model.pth')
     adata_after_train.write(fig_save_path+'adata_reg_'+str(spatial_reg_parameter)+'_epoch'+str(epochs)+'.h5ad')
+
 
 
 
