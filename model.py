@@ -19,7 +19,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, GATv2Conv
 import torch
-#import pysodb
+import pysodb
 
 from tqdm import tqdm
 from torch_geometric.data import Data
@@ -57,11 +57,11 @@ class GCNEncoder(nn.Module):
         self.layers.append(GCNConv(layer_dims[1], layer_dims[2], add_self_loops=False, bias=False))
         self.layers.append(GCNConv(layer_dims[2], layer_dims[3], add_self_loops=False, bias=False))
         #self.layers.append(GATv2Conv(layer_dims[2], layer_dims[3], heads=heads, concat=False, dropout=dropout,add_self_loops=True, bias=False))
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, edge_weight=None):                 
         # Process input through each GAT layer using elu activation function
         for layer in self.layers[:-1]:
-            x = F.elu(layer(x, edge_index))
-        x = self.layers[-1](x, edge_index)
+            x = F.elu(layer(x, edge_index, edge_weight))                
+        x = self.layers[-1](x, edge_index, edge_weight)                 
         return x
 
 class GCNDecoder(nn.Module):
@@ -79,11 +79,11 @@ class GCNDecoder(nn.Module):
         self.layers.append(GCNConv(layer_dims[1], layer_dims[2], add_self_loops=False, bias=False))
         self.layers.append(GCNConv(layer_dims[2], layer_dims[3], add_self_loops=False, bias=False))
         #self.layers.append(GATv2Conv(layer_dims[2], layer_dims[3], heads=heads, concat=False, dropout=dropout,add_self_loops=True, bias=False))
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, edge_weight=None):                 
         # Process input through each GAT layer using elu activation function
         for layer in self.layers[:-1]:
-            x = F.elu(layer(x, edge_index))
-        x = self.layers[-1](x, edge_index)
+            x = F.elu(layer(x, edge_index, edge_weight))                
+        x = self.layers[-1](x, edge_index, edge_weight)                 
         return x
 
 class DWGCN(nn.Module):
@@ -107,7 +107,7 @@ class DWGCN(nn.Module):
         self.clust_dim = clust_dim
         self.clust_layer = clust_layer
         #self.lamda = lamda
-        self.lamda = nn.Parameter(torch.tensor(0.5,dtype=torch.float32),requires_grad=True)
+        self.lamda = nn.Parameter(torch.tensor(0.0,dtype=torch.float32),requires_grad=True)  
         self.ExpressionEncoder = GCNEncoder(
             layer_dims=[self.gene_dim] + self.layer_encoder + [self.embedding_dim],
             dropout=self.dropout, heads=self.heads
@@ -136,20 +136,20 @@ class DWGCN(nn.Module):
             dropout=self.dropout, heads=self.heads
         )
         
-    def forward(self, x, edge_index, compo, compo_index):
-        embeddings = self.ExpressionEncoder(x, edge_index)
-        compo = self.MicroenvEncoder(compo, compo_index)
+    def forward(self, x, edge_index, compo, compo_index, edge_weight=None, compo_weight=None):   
+        embeddings = self.ExpressionEncoder(x, edge_index, edge_weight)         
+        compo = self.MicroenvEncoder(compo, compo_index, compo_weight)          
         #self.lamda = torch.clamp(self.lamda, min=0, max=1)
-        embeddings = torch.tanh(self.lamda) * embeddings + (1 - torch.tanh(self.lamda)) * compo
+        embeddings = torch.sigmoid(self.lamda) * embeddings + (1 - torch.sigmoid(self.lamda)) * compo   
         
-        pi = self.Z2pi(embeddings, edge_index)
+        pi = self.Z2pi(embeddings, edge_index, edge_weight)                
         #pi = self.Z2pi(embeddings)
         pi = F.sigmoid(pi)
-        mu = self.Z2mu(embeddings, edge_index)
+        mu = self.Z2mu(embeddings, edge_index, edge_weight)                
         #mu = self.Z2mu(embeddings)
         mu = F.softplus(mu)
         mu = torch.clamp(mu, min=1e-8, max=1e6)
-        theta = self.Z2theta(embeddings, edge_index)
+        theta = self.Z2theta(embeddings, edge_index, edge_weight)          
         #theta = self.Z2theta(embeddings)
         theta = torch.exp(theta)
         theta = torch.clamp(theta, min=1e-8, max=1e6)
@@ -157,37 +157,38 @@ class DWGCN(nn.Module):
         return embeddings, pi, mu, theta, self.lamda
 
 #loss function 
-def zinb_loss(true, pred, pi, theta, eps=1e-6, reg_theta=1e-4):
-
+def zinb_loss(true, pred, pi, theta, eps=1e-6, reg_theta=1e-4, size_factor=None):   
     """
     Compute Zero-Inflated Negative Binomial loss.
-    
+
     Parameters:
     - true: The true values.
     - pred: The predicted mean values.
     - pi: The predicted zero-inflation probabilities.
     - theta: The dispersion parameter of the negative binomial distribution.
     - eps: A small value used for numerical stability.
-    
+
     Returns:
     - loss: The computed loss value.
     """
 
     # Negative Binomial
+    if size_factor is not None:                                         
+        pred = pred * size_factor.reshape(-1, 1)                        
     pred = torch.clamp(pred, min=eps, max=1e6)
     theta = torch.clamp(theta, min=eps, max=1e6)
     pi = torch.clamp(pi, min=eps, max=1-eps)
-    
+
     t1 = torch.lgamma(theta + eps) + torch.lgamma(true + 1.0) - torch.lgamma(theta + true + eps)
     t2 = (theta + true) * torch.log(1.0 + (pred / (theta + eps))+eps) + (true * (torch.log(theta + eps) - torch.log(pred + eps)))
 
     nb_loss = t1 + t2
 
-    # Zero-Inflated
-    zero_inflation = -torch.log(torch.where(true > 0, 1.0 - pi+eps, pi+eps))
-
-    # add two part
-    loss = zero_inflation + nb_loss * (1 - pi) + reg_theta * theta
+    
+    zero_nb = torch.pow(theta / (theta + pred + eps), theta)
+    zero_case = -torch.log(pi + (1.0 - pi) * zero_nb + eps)
+    nb_case = nb_loss - torch.log(1.0 - pi + eps)
+    loss = torch.where(true < 1e-8, zero_case, nb_case)
 
     return loss.mean()
 
@@ -226,7 +227,7 @@ def regularization_loss(emb, spatial_coords, spatial_neighbor, device='cuda:0'):
     pair_loss = -(neigh_loss + neg_loss) / 2
     return pair_loss
 
-def spatial_reg_loss(z, spatial_coords, device= 'cuda'):
+def spatial_reg_loss(z, spatial_coords, device= 'cuda'): 
 
     """
     Compute the spatial regularization loss. (inspired from SpaceFlow algorithm)
@@ -240,26 +241,15 @@ def spatial_reg_loss(z, spatial_coords, device= 'cuda'):
     """
 
     coords = torch.tensor(spatial_coords).float().to(device)
-    '''
-    if regularization_acceleration or adata_preprocessed.shape[0] > 5000:
-        cell_random_subset_1, cell_random_subset_2 = torch.randint(0, z.shape[0], (edge_subset_sz,)).to(device), torch.randint(0, z.shape[0], (edge_subset_sz,)).to(device)
-        z1, z2 = torch.index_select(z, 0, cell_random_subset_1), torch.index_select(z, 0, cell_random_subset_2)
-        c1, c2 = torch.index_select(coords, 0, cell_random_subset_1), torch.index_select(coords, 0, cell_random_subset_1)
-        pdist = torch.nn.PairwiseDistance(p=2)
 
-        z_dists = pdist(z1, z2)
-        z_dists = z_dists / torch.max(z_dists)
-
-        sp_dists = pdist(c1, c2)
-        sp_dists = sp_dists / torch.max(sp_dists)
-        n_items = z_dists.size(dim=0)
-    else:
-    '''
     z_dists = torch.cdist(z, z, p=2)
     z_dists = torch.div(z_dists, torch.max(z_dists)).to(device)
     sp_dists = torch.cdist(coords, coords, p=2)
     sp_dists = torch.div(sp_dists, torch.max(sp_dists)).to(device)
     n_items = z.size(dim=0) * z.size(dim=0)
+
+    penalty = torch.div(torch.sum(torch.mul(1.0 - z_dists, sp_dists)), n_items).to(device)
+    return penalty
 
     penalty = torch.div(torch.sum(torch.mul(1.0 - z_dists, sp_dists)), n_items).to(device)
     return penalty
