@@ -21,7 +21,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, GATv2Conv
 import torch
-#import pysodb
+import pysodb
 
 from tqdm import tqdm
 from torch_geometric.data import Data
@@ -44,21 +44,30 @@ def train(adatast,
         max_epochs_st=1500,
         verbose=False, save_history=False
         ):
-    X_st = adatast.X
-    if isinstance(X_st, np.ndarray):
+    X_in = adatast.X                                   
+    if isinstance(X_in, np.ndarray):
         pass
     else:
-        X_st = X_st.toarray()
- 
+        X_in = X_in.toarray()
+
+    X_st = adatast.layers['counts']                   
+    X_st = X_st.toarray() if hasattr(X_st, 'toarray') else np.asarray(X_st)
+    size_factor = X_st.sum(1) / np.median(X_st.sum(1)) 
+    size_factor = torch.as_tensor(size_factor, dtype=torch.float32).to(device)
+
     dis = adatast.obsm['dis_adj']
-    dis = torch.as_tensor(dis).to(device)
+    dis = torch.as_tensor(dis, dtype=torch.float32).to(device)             
     compo_adj = adatast.obsm['compo_adj']
-    compo_adj = torch.as_tensor(compo_adj).to(device)
+    compo_adj = torch.as_tensor(compo_adj, dtype=torch.float32).to(device) 
     compo = adatast.obsm['compo']
     compo = torch.as_tensor(compo).to(torch.float32)
-    dis_data = Data(torch.FloatTensor(X_st), dis.nonzero().t().contiguous().long()).to(device)
-    compo_data = Data(torch.FloatTensor(compo), compo_adj.nonzero().t().contiguous().long()).to(device)
-    X_st = torch.as_tensor(X_st).to(device)
+    dis_idx = dis.nonzero().t().contiguous().long()                    
+    dis_w = dis[dis_idx[0], dis_idx[1]]                                
+    compo_idx = compo_adj.nonzero().t().contiguous().long()            
+    compo_w = compo_adj[compo_idx[0], compo_idx[1]]                    
+    dis_data = Data(torch.FloatTensor(X_in), dis_idx).to(device)      
+    compo_data = Data(torch.FloatTensor(compo), compo_idx).to(device)
+    X_st = torch.as_tensor(np.asarray(X_st, dtype=np.float32)).to(device)
     dis = torch.as_tensor(dis).to(device)
     compo = torch.as_tensor(compo).to(device)
     compo_adj = torch.as_tensor(compo_adj).to(device)
@@ -87,10 +96,10 @@ def train(adatast,
         
     for epoch in pbar:
         optimizer2.zero_grad()
-        embeddings_st, pi_st, mu_st, theta_st, lamda = model(dis_data.x, dis_data.edge_index, compo_data.x, compo_data.edge_index)
+        embeddings_st, pi_st, mu_st, theta_st, lamda = model(dis_data.x, dis_data.edge_index, compo_data.x, compo_data.edge_index, dis_w, compo_w)   
 
-        loss_ZINB = zinb_loss(X_st, mu_st, pi_st, theta_st, reg_theta)
-        loss_spatial_reg = spatial_reg_loss(embeddings_st, spatial_coords, device = device)
+        loss_ZINB = zinb_loss(X_st, mu_st, pi_st, theta_st, size_factor=size_factor)   
+        loss_spatial_reg = spatial_reg_loss(embeddings_st, spatial_coords, device = device)   
         #loss_reg = regularization_loss(embeddings_st, spatial_coords)
         
         loss_total = loss_ZINB + spatial_reg_parameter * loss_spatial_reg
@@ -117,7 +126,7 @@ def train(adatast,
         adatast.uns['training_history_df_st'] = training_history_df
 
     model.eval()
-    embeddings_st, pi_st, mu_st, theta_st, lamda = model(dis_data.x, dis_data.edge_index, compo_data.x, compo_data.edge_index)
+    embeddings_st, pi_st, mu_st, theta_st, lamda = model(dis_data.x, dis_data.edge_index, compo_data.x, compo_data.edge_index, dis_w, compo_w)  
 
     adatast.model = model
     adatast.obsm['embeddings'] = embeddings_st.detach().cpu().numpy()
@@ -131,7 +140,7 @@ def set_seed(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+    torch.cuda.manual_seed_all(seed) 
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -145,17 +154,17 @@ if __name__ == '__main__':
     parser.add_argument('--source_data', type=str, default="./STARmap_20180505_BY3_1k_20251015172221.h5ad", help='Path to load anndata')
     parser.add_argument('--fig_save_path', type=str, default="./temp_test/", help='Path to save figures and results')
     parser.add_argument('--epochs', type=int, default=200, help='training epochs')
-    parser.add_argument('--spatial_reg_parameter', type=int, default=10, help='spatial reg hyparameter')
+    parser.add_argument('--spatial_reg_parameter', type=int, default=20, help='spatial reg hyparameter')
     parser.add_argument('--layer_encoder', type=int, nargs=2, default=[256,128], help='GCNEncoder neuron number')
     parser.add_argument('--layer_decoder', type=int, nargs=2, default=[128,256], help='GCNDecoder neuron number')
     parser.add_argument('--estimate_clust_num', type=int, default=7, help='estimating cluster number for mclust')
     parser.add_argument('--cuda', type=int, default=1, help='cuda kernel')
-    parser.add_argument('--exp_neighbor', type=int, default=6, help='gene_expression_neighbor')
-    parser.add_argument('--env_neighbor', type=int, default=18, help='microenvironment_neighbor')
+    parser.add_argument('--exp_neighbor', type=int, default=10, help='gene_expression_neighbor')
+    parser.add_argument('--env_neighbor', type=int, default=30, help='microenvironment_neighbor')
     parser.add_argument('--ini_res', type=float, default=1, help='initial resolution for clust')
     parser.add_argument('--dist_mode', type=str, default="lnv1", help='distance kernel mode')
     parser.add_argument('--res_set', type=float, default=0.5, help='chosen leiden resolution')
-    parser.add_argument('--cluster_mode', type=str, default='leiden', help='cluster mode for final embedding') 
+    parser.add_argument('--cluster_mode', type=str, default='mclust', help='cluster mode for final embedding') 
  
     args = parser.parse_args()
     source_data = args.source_data
@@ -175,12 +184,7 @@ if __name__ == '__main__':
     set_seed(1234)
 
     #load data
-    #adata = ad.read("/data2/zkf/MENDER/STARmap_20180505_BY3_1k_20250310202358.h5ad")
-
-    #import pysodb
-    #sodb = pysodb.SODB()
-    #adata_raw = sodb.load_experiment('Allen2022Molecular_aging',source_data)
-    #adata = adata_raw.copy()
+    #adata = ad.read("/data2/zkf/STARmap_20180505_BY3_1k_20250310202358.h5ad")
 
     adata = ad.read(source_data)
     print(adata)
@@ -203,7 +207,7 @@ if __name__ == '__main__':
     adata = adata[adata.obs['ifNA'],:]
     print(adata)
     '''
-    adata = preprocessing(adata)
+    adata = preprocessing(adata,initial_res=ini_res)
     #initial_res = ini_res
     #initial_type_store = "celltype"
     #adata.obs['ground_truth'] = adata.obs['tissue']
@@ -224,6 +228,8 @@ if __name__ == '__main__':
         raise ValueError("Cluster mode not exist. Cluster mode must be leiden or mclust.")
     torch.save(adata_after_train.model, fig_save_path+'model.pth')
     adata_after_train.write(fig_save_path+'adata_reg_'+str(spatial_reg_parameter)+'_epoch'+str(epochs)+'.h5ad')
+
+
 
 
 
