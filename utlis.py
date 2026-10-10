@@ -19,7 +19,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, GATv2Conv
 import torch
-#import pysodb
+import pysodb
 
 from tqdm import tqdm
 from torch_geometric.data import Data
@@ -45,6 +45,7 @@ def preprocessing(adata, pca_num = 30,
     if adata.n_vars > 4000:
         sc.pp.highly_variable_genes(adata, flavor="seurat_v3", n_top_genes=4000)
         adata = adata[:,adata.var['highly_variable']]
+    adata.layers['counts'] = adata.X.copy()     
     sc.pp.normalize_total(adata, inplace=True)
     sc.pp.log1p(adata)
     sc.pp.pca(adata, n_comps=pca_num)
@@ -61,11 +62,11 @@ def preprocessing(adata, pca_num = 30,
     
     return preprocessed_adata
 
-def build_expression_graph(adata, expression_neighbor = 6, dist_mode = 'lnv1', alpha = 1, diag = 1, verbose = False):
+def build_expression_graph(adata, expression_neighbor = 6, dist_mode = 'lnv1', alpha = 1, diag = 1, verbose = False):   
     #check adata, if having necessary part
     if 'spatial' not in adata.obsm:
         raise ValueError("No spatial coordinates exist. Please check adata.obsm.")
-    
+
     spatial_coords = adata.obsm['spatial']
 
     #create expression KNN graph, in distance mode
@@ -79,18 +80,18 @@ def build_expression_graph(adata, expression_neighbor = 6, dist_mode = 'lnv1', a
     #add self loop
     mat_st = np.eye(adata.n_obs)# same scale diag matrix
     distance_matrix = alpha * distance_matrix + diag * mat_st #for array data only
-    
+
     #save expression graph in adata.obsm
     adata.obsm['dis_adj'] = distance_matrix
     return adata
 
-def build_microenv_graph(adata, initial_type = 'celltype', microenv_neighbor = 18, dist_mode = 'lnv1', alpha = 1, diag = 1, calculate_compo_data = True,verbose = False):
+def build_microenv_graph(adata, initial_type = 'celltype', microenv_neighbor = 18, dist_mode = 'lnv1', alpha = 1, diag = 1, calculate_compo_data = True,verbose = False): 
     #check adata, if having necessary part
     if 'spatial' not in adata.obsm:
         raise ValueError("No spatial coordinates exist. Please check adata.obsm.")
     if initial_type not in adata.obs:
         raise ValueError("No initial type exist. Please check adata.obs.")
-    
+
     spatial_coords = adata.obsm['spatial']
 
     #create microenvironment matrix
@@ -107,7 +108,7 @@ def build_microenv_graph(adata, initial_type = 'celltype', microenv_neighbor = 1
     #add self loop
     mat_st = np.eye(adata.n_obs)# same scale diag matrix
     distance_matrix = alpha * distance_matrix + diag * mat_st #for array data only
-    
+
     if calculate_compo_data:
         #add compo and compo_adj
         compo_data = distance_matrix @ composition_matrix
@@ -126,24 +127,21 @@ def calculate_clust_array(adata, initial_type, verbose = False):
     #check adata, if having necessary part
     if initial_type not in adata.obs:
         raise ValueError("No initial type exist. Please check adata.obs.")
-    clusts = adata.obs[initial_type].value_counts()#collect cell type
-    clust_num = len(clusts)
-    composition_matrix= np.zeros((adata.n_obs, clust_num))
-    for cell in range(0, adata.n_obs):#transfer vector to array
-        for type in range(0, clust_num):
-            if adata.obs['celltype'][cell] == str(type):
-                composition_matrix[cell,type] = 1
-    
+    cats = adata.obs[initial_type].astype('category')
+    clust_num = len(cats.cat.categories)
+    composition_matrix = np.zeros((adata.n_obs, clust_num))
+    composition_matrix[np.arange(adata.n_obs), cats.cat.codes.to_numpy()] = 1
+
     return composition_matrix, clust_num
 
 
 
 def calculate_distance_kernel(distance_matrix,
                               nbr,
-                              if_mean = True, 
-                              distance_mode = 'lnv1', 
-                              if_scale = True,
-                              if_to_array = True, 
+                              if_mean = True,
+                              distance_mode = 'lnv1',
+                              if_scale = False,       
+                              if_to_array = True,     
                               verbose = False):
     #if using median nearest to normalize distance
     if if_mean == True:
@@ -164,19 +162,19 @@ def calculate_distance_kernel(distance_matrix,
     if distance_mode == "gaussian":
         distance_matrix.data = distance_matrix.data ** 2 
         distance_matrix.data = np.exp(-distance_matrix.data)#exp,use the exp*(-x) cal the distance
-    if verbose: 
+    if verbose:
         print("after calculated distance is: ", distance_matrix.data)
-    
+
     #if using softmax strategy to normalize distance
     if if_scale == True:
         distance_matrix_sum = distance_matrix.sum(axis=1)
         distance_matrix = distance_matrix.multiply(1 / distance_matrix_sum)
         if verbose:
             print("after scaled distance is: ", distance_matrix.data)
-    
+
     if if_to_array == True:
         distance_matrix = distance_matrix.toarray()
-    
+
     return distance_matrix
 
 def cluster_method(adata, fig_save_path, data_place = 'embeddings', mode = 'leiden', res_lei = 0.5, n_cluster = 7):
@@ -219,8 +217,6 @@ def cluster_method(adata, fig_save_path, data_place = 'embeddings', mode = 'leid
         print("res:",res,", NMI=",NMI, ", ARI=",ARI)
         sq.pl.spatial_scatter(adata_new,spatial_key="spatial",shape=None,color=f"{obsm_data}_mclust",title="DWGCN "+mode+" NMI="+ str(NMI)+" ARI="+ str(ARI),
         save=fig_save_path+"mclust" +str(n_cluster)+".jpg", dpi = 100)
-
-
 
 
 
