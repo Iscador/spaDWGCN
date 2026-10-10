@@ -110,5 +110,6 @@ python "./spaDWGCN.py" --source_data "./STARmap_20180505_BY3_1k_20251015172221.h
 ```
 
 The cluster results can be found in the corresponding folder:
-<img width="651" height="318" alt="mclust7" src="https://github.com/user-attachments/assets/36f6179e-83be-4954-95cc-6736c9d95ce3" />
+<img width="651" height="318" alt="mclust7" src="https://github.com/user-attachments/assets/3d6170c5-6af0-4723-8959-c30ee875f72f" />
+
 
